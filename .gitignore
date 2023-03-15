@@ -1,5 +1,7 @@
 # gitignore file
-./a.out
+
+# ignore executables
+./*
 
 # ignore any files without extension
 /[^\.]*
