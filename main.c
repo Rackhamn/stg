@@ -8,14 +8,14 @@ int main(int argc, char ** argv) {
 
     unsigned long long int start, end, elapsed; // us 
 
-    start = get_time_ns();
+    start = get_time_us();
 
     printf("hello world!\n");
 
-    end = get_time_ns();
+    end = get_time_us();
     elapsed = end - start;
 
-    printf("runtime: %llu (ns)\n", elapsed);
+    printf("runtime: %llu (us)\n", elapsed);
 
     return 0;
 }
