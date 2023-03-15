@@ -2,12 +2,12 @@
 #include <stdio.h>
 
 // #include <GL/gl.h>
-// #include <GL/glew.h>
+#include <GL/glew.h> // sudo apt-get install glew-utils
 #include <SDL2/SDL.h>
 
 #include "time.c"
 
-// $ gcc main.c -o a.out -lSDL2
+// $ gcc main.c -o a.out -lSDL2 -lGL -lGLEW
 int main(int argc, char ** argv) {
 
     int quit = 0;
@@ -17,7 +17,7 @@ int main(int argc, char ** argv) {
     SDL_version sdl_ver_compiled, sdl_ver_linked;
 
     SDL_Window * window;
-	// SDL_GLContext context;
+	SDL_GLContext context;
 
     start = get_time_us();
 
@@ -36,10 +36,31 @@ int main(int argc, char ** argv) {
             sdl_ver_linked.major, sdl_ver_linked.minor, sdl_ver_linked.patch);
 
     printf("create SDL window\n");
-    unsigned int window_flags = SDL_WINDOW_RESIZABLE;
+    unsigned int window_flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
     window = SDL_CreateWindow("title", 
                             SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                             640, 480, window_flags); 
+
+    printf("create GL context\n");
+    context = SDL_GL_CreateContext(window);
+    // v-sync with monitor refresh rate
+	SDL_GL_SetSwapInterval(0); // disable vsync for N-fps
+
+    // set GL attributes for api	
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+
+    // init glew (gl bindings)
+    glewInit();
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_TEXTURE_2D);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // red backgroud
+    glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
 
     while(!quit) {
         while(SDL_PollEvent(&sdl_event)) {
@@ -51,8 +72,20 @@ int main(int argc, char ** argv) {
 		    }
 	    }
 
-        sleep_us(1000);
+        // sleep_us(1000);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        SDL_GL_SwapWindow(window);
     }
+
+// Noctua NF-S12A PWM Fan - 17.8dBA
+// be quiet! SILENT WINGS 3 120mm PWM Fan - 16.4dBA
+// Scythe Kaze Flex 120 Case Fan - 14.5dBA
+// Cooler Master Silencio FP 120 PWM Fan - 14dBA
+
+
+
+    printf("Destroy GL context\n");
+    SDL_GL_DeleteContext(context);
 
     printf("Destroy SDL windows\n");
     SDL_DestroyWindow(window);
