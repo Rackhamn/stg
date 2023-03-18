@@ -27,7 +27,7 @@ int main(int argc, char ** argv) {
         // using terminal
     } else {
         // use a log file
-        freopen("runtime.log", "a+", stdout);
+        freopen("runtime.log", "w+", stdout);
     }
 
     printf("hello world!\n");
