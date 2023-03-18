@@ -5,3 +5,6 @@
 
 # ignore any files without extension
 /[^\.]*
+
+# ignore build folder
+build/

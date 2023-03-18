@@ -22,10 +22,8 @@ int main(int argc, char ** argv) {
 
     start = get_time_us();
 
-    // check if stdout is terminal or not
-    if(isatty(1)) {
-        // using terminal
-    } else {
+    // check if stdout is terminal or not (running from terminal) 
+    if(!isatty(1)) {
         // use a log file
         freopen("runtime.log", "w+", stdout);
     }
