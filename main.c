@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h> // isatty()
 
 // #include <GL/gl.h>
 #include <GL/glew.h> // sudo apt-get install glew-utils
@@ -7,7 +8,7 @@
 
 #include "time.c"
 
-// $ gcc main.c -o a.out -lSDL2 -lGL -lGLEW
+// $ gcc main.c -o build/a.out -lSDL2 -lGL -lGLEW
 int main(int argc, char ** argv) {
 
     int quit = 0;
@@ -20,6 +21,14 @@ int main(int argc, char ** argv) {
 	SDL_GLContext context;
 
     start = get_time_us();
+
+    // check if stdout is terminal or not
+    if(isatty(1)) {
+        // using terminal
+    } else {
+        // use a log file
+        freopen("runtime.log", "a+", stdout);
+    }
 
     printf("hello world!\n");
 
@@ -76,13 +85,6 @@ int main(int argc, char ** argv) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         SDL_GL_SwapWindow(window);
     }
-
-// Noctua NF-S12A PWM Fan - 17.8dBA
-// be quiet! SILENT WINGS 3 120mm PWM Fan - 16.4dBA
-// Scythe Kaze Flex 120 Case Fan - 14.5dBA
-// Cooler Master Silencio FP 120 PWM Fan - 14dBA
-
-
 
     printf("Destroy GL context\n");
     SDL_GL_DeleteContext(context);
