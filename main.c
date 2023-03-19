@@ -46,8 +46,6 @@ const float identity_mat4[16] =
     0.0f, 0.0f, 1.0f, 0.0f, 
     0.0f, 0.0f, 0.0f, 1.0f };
 
-typedef float vec3[3];
-
 struct render_data_s {
     int vbo_count, vao_count;
     int * vbos, * vaos;
@@ -91,6 +89,8 @@ int main(const int argc, const char ** argv) {
 
     SDL_Window * window;
 	SDL_GLContext context;
+
+    
 
     start = get_time_us();
     memset(total_timing, 0, TT_MAX * sizeof(unsigned long long int)); 
@@ -285,30 +285,7 @@ int main(const int argc, const char ** argv) {
         glEnd();
         #else
         // opengl3 line
-        glUseProgram(line_shader);
         
-        float * mvp = identity_mat4;
-        vec3 line_color;
-
-        line_color[0] = 0.0f;
-        line_color[1] = 0.0f;
-        line_color[2] = 1.0f;
-
-        // build the mvp
-        
-
-
-        // push base data
-        glUniformMatrix4fv(glGetUniformLocation(line_shader, "mvp"), 1, GL_FALSE, (const GLfloat *)&mvp);
-        glUniform3fv(glGetUniformLocation(line_shader, "color"), 1, (const GLfloat *)&line_color[0]);
-        
-        glBindVertexArray(line_vao);
-
-        glDrawArrays(GL_LINES, 0, 2);
-
-        glBindVertexArray(0);
-        glUseProgram(0);
-
         #endif
 
         SDL_GL_SwapWindow(window);
