@@ -359,17 +359,25 @@ int main(const int argc, const char ** argv) {
     float dx = 0.0f;
     
     // TODO: remappable keys
+    // TODO: keylogger and replayer 
 
-    unsigned long int left_key, right_key;
-    int left_key_state, right_key_state;
+    struct input_key {
+        unsigned long int keysym;
+        int value;
+    };
 
+    int num_keys = 4;
     int is_remapping = 0, map_index = -1;
-    left_key = SDLK_LEFT;  
-    right_key = SDLK_RIGHT;
-    left_key_state = 0;
-    right_key_state = 0;
+    struct input_key iks[4];
+    memset(iks, 0, sizeof(struct input_key) * num_keys);
+    iks[0].keysym = SDLK_LEFT;
+    iks[1].keysym = SDLK_RIGHT;
+    iks[2].keysym = SDLK_UP;
+    iks[3].keysym = SDLK_DOWN;
 
     unsigned long long int frame_start, frame_end, frame_elapsed;
+    unsigned long int keysym;
+    
     while(!quit) {
         frame_start = get_time_us();
         
@@ -378,66 +386,66 @@ int main(const int argc, const char ** argv) {
         // read input:
         while(SDL_PollEvent(&sdl_event) != 0) {
 		    switch(sdl_event.type) {
-                 case SDL_KEYDOWN:
-                    if(sdl_event.key.keysym.sym == SDLK_q) {
+                 case SDL_KEYDOWN: {
+                    keysym = sdl_event.key.keysym.sym;
+
+                    if(keysym == SDLK_q) {
                         if(is_remapping) {
                             printf("stop remapping.\n");
                             is_remapping = 0;
+                            map_index = -1;
                         } else {
                             printf("start remapping.\n");
-                            is_remapping = 1;                        
-                        }  
+                            is_remapping = 1;
+                            map_index = -1;                        
+                        }
+                        break;
                     } 
 
                     if(is_remapping) {
                         if(map_index == -1) {
                             // press the key you want to change
-                            if(sdl_event.key.keysym.sym == left_key) {
-                                printf("mapping index 0\n");
-                                map_index = 0;
-                            }
-                            if(sdl_event.key.keysym.sym == right_key) {
-                                printf("mapping index 1\n");
-                                map_index = 1;
+                            for(int i = 0; i < num_keys; i++) {
+                                if(keysym == iks[i].keysym) {
+                                    printf("mapping index %i (keysym: %s)\n", i, SDL_GetKeyName(keysym));
+                                    map_index = i;
+                                    break;
+                                }
                             }
                         } else {
                             // assign a key to mapping index
-                            if(sdl_event.key.keysym.sym != SDLK_q) {
-                                switch(map_index) {
-                                    case 0:
-                                        left_key = sdl_event.key.keysym.sym;
-                                        printf("mapped LEFT to %s\n", SDL_GetKeyName(sdl_event.key.keysym.sym));
-                                        map_index = -1;
-                                    break;
-                                    case 1:
-                                        right_key = sdl_event.key.keysym.sym;
-                                        printf("mapped RIGHT to %s\n", SDL_GetKeyName(sdl_event.key.keysym.sym));
-                                        map_index = -1;
-                                        // is_remapping = 0;
-                                    break;
-                                }
+                            // make sure that any other keys using the same keysym will be removed
+                            if(keysym != SDLK_q) {
+                                printf("mapped index %i (keysym: %s) to %s\n", map_index,
+                                    SDL_GetKeyName(iks[map_index].keysym),
+                                    SDL_GetKeyName(keysym));
+
+                                iks[map_index].keysym = keysym;
+                                map_index = -1;
                             }
                         }
                     } else {
                         // regular input 
-                        if(sdl_event.key.keysym.sym == left_key) {
-                            left_key_state = 1;
-                        }
-                        if(sdl_event.key.keysym.sym == right_key) {
-                            right_key_state = 1;
+                        // poor linear search
+                        for(int i = 0; i < num_keys; i++) {
+                            if(keysym == iks[i].keysym) {
+                                iks[i].value = 1;
+                                break;                            
+                            }
                         }
                     }
-                    
-                break;
-                case SDL_KEYUP:
+                } break;
+                case SDL_KEYUP: {
+                    keysym = sdl_event.key.keysym.sym;
+
                     // sdl_keys[sdl_event.key.keysym.sym] = 0; 
-                    if(sdl_event.key.keysym.sym == left_key) {
-                        left_key_state = 0;
+                    for(int i = 0; i < num_keys; i++) {
+                        if(keysym == iks[i].keysym) {
+                            iks[i].value = 0;
+                            // break;                            
+                        }
                     }
-                    if(sdl_event.key.keysym.sym == right_key) {
-                        right_key_state = 0;
-                    }
-                break;
+                } break;
 			    case SDL_QUIT:
 				    printf("cmd: sdl_window_quit\n");
 				    quit = 1;
@@ -445,12 +453,13 @@ int main(const int argc, const char ** argv) {
 		    }
 	    }
 
+        mv_dir = 0;
         // post
-        if(left_key_state) {
+        if(iks[0].value) {
             mv_dir -= 1.0f;            
         }
 
-        if(right_key_state) {
+        if(iks[1].value) {
             mv_dir += 1.0f;            
         }
 
