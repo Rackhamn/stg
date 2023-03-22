@@ -369,24 +369,34 @@ int main(const int argc, const char ** argv) {
 
     struct input_key {
         // int tag; // action key map
-        unsigned long int keysym;
+        long int keysym;
         int value;
     };
 
     int num_keys = 4;
     int is_remapping = 0, map_index = -1;
     
-    struct input_key iks[4];
+    // SDL_NUM_SCANCODES = 512
+    struct input_key iks[SDL_NUM_SCANCODES];
     memset(iks, 0, sizeof(struct input_key) * num_keys);
 
     // keep this default loader for the input
+    #if 0    
     iks[0].keysym = SDLK_LEFT;
     iks[1].keysym = SDLK_RIGHT;
     iks[2].keysym = SDLK_UP;
     iks[3].keysym = SDLK_DOWN;
+    #endif
+
+    iks[SDL_SCANCODE_LEFT].keysym = SDLK_LEFT;
+    iks[SDL_SCANCODE_RIGHT].keysym = SDLK_RIGHT;
+    iks[SDL_SCANCODE_DOWN].keysym = SDLK_UP;
+    iks[SDL_SCANCODE_UP].keysym = SDLK_DOWN;
 
     unsigned long long int frame_start, frame_end, frame_elapsed;
-    unsigned long int keysym;
+    
+    long int scancode;    
+    long int keysym;
     
     while(!quit) {
         frame_start = get_time_us();
@@ -396,6 +406,7 @@ int main(const int argc, const char ** argv) {
         while(SDL_PollEvent(&sdl_event) != 0) {
 		    switch(sdl_event.type) {
                  case SDL_KEYDOWN: {
+                    scancode = sdl_event.key.keysym.scancode;
                     keysym = sdl_event.key.keysym.sym;
 
                     if(keysym == SDLK_q) {
@@ -414,13 +425,9 @@ int main(const int argc, const char ** argv) {
                     if(is_remapping) {
                         if(map_index == -1) {
                             // press the key you want to change
-                            for(int i = 0; i < num_keys; i++) {
-                                if(keysym == iks[i].keysym) {
-                                    printf("mapping index %i (keysym: %s)\n", i, SDL_GetKeyName(keysym));
-                                    map_index = i;
-                                    break;
-                                }
-                            }
+                            unsigned long int _keysym = iks[scancode].keysym;
+                            map_index = scancode;
+                            printf("mapping index %i (keysym: %s)\n", map_index, SDL_GetKeyName(_keysym));
                         } else {
                             // assign a key to mapping index
                             // make sure that any other keys using the same keysym will be removed
@@ -436,24 +443,16 @@ int main(const int argc, const char ** argv) {
                     } else {
                         // regular input 
                         // poor linear search
-                        for(int i = 0; i < num_keys; i++) {
-                            if(keysym == iks[i].keysym) {
-                                iks[i].value = 1;
-                                break;                            
-                            }
-                        }
+
+                        iks[scancode].value = 1;
+
                     }
                 } break;
                 case SDL_KEYUP: {
+                    scancode = sdl_event.key.keysym.scancode;
                     keysym = sdl_event.key.keysym.sym;
 
-                    // sdl_keys[sdl_event.key.keysym.sym] = 0; 
-                    for(int i = 0; i < num_keys; i++) {
-                        if(keysym == iks[i].keysym) {
-                            iks[i].value = 0;
-                            // break;                            
-                        }
-                    }
+                    iks[scancode].value = 0;
                 } break;
 			    case SDL_QUIT:
 				    printf("cmd: sdl_window_quit\n");
@@ -466,10 +465,10 @@ int main(const int argc, const char ** argv) {
         vel_y = 0.0f;
 
         // post
-        if(iks[0].value) { vel_x -= 1.0f; }
-        if(iks[1].value) { vel_x += 1.0f; }
-        if(iks[2].value) { vel_y += 1.0f; }
-        if(iks[3].value) { vel_y -= 1.0f; }
+        if(iks[SDL_SCANCODE_LEFT].value) { vel_x -= 1.0f; }
+        if(iks[SDL_SCANCODE_RIGHT].value) { vel_x += 1.0f; }
+        if(iks[SDL_SCANCODE_UP].value) { vel_y += 1.0f; }
+        if(iks[SDL_SCANCODE_DOWN].value) { vel_y -= 1.0f; }
 
         // actually the camera that moves and not the model.
         dx -= vel_x * c_force_x * frame_delta_time;
