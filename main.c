@@ -54,6 +54,9 @@ struct render_data_s {
     // render type (LINE) -> vbo, vao, shader ids map 
 };
 
+// TODO: make timings use a proper timestruct (start, end, elapsed, { ns, us, ms, s, mm, hh, dd, yy }) 
+// along with a nice printout and format function
+
 // for timings
 enum time_tag {
     TT_INIT = 0, 
@@ -65,6 +68,8 @@ enum time_tag {
 
     TT_MAX
 };
+const char * time_tag_name[TT_MAX] = { "Startup", "Cleanup", "Input", "Update", "Render", "Sleep" };
+
 
 struct shader {
     int id;
@@ -204,7 +209,7 @@ int main(const int argc, const char ** argv) {
     printf("* compile line shader\n");
     
     GLuint line_vao, line_vbo, line_shader;
-    GLuint line_shader_mvp_loc, proj_loc, view_loc; 
+    GLuint line_shader_mvp_loc; //, proj_loc, view_loc; 
     GLuint line_shader_color_loc;
 
     {
@@ -232,12 +237,9 @@ int main(const int argc, const char ** argv) {
 
         const char * line_vertex_shader_src = 
             "#version 130\n"
-            "uniform mat4 proj;\n"
-            "uniform mat4 view;\n"            
             "uniform mat4 mvp;\n"
             "in vec3 pos;\n"
             "void main() {\n"
-            // "\tmat4 mvp = proj * view;\n"
             "\tgl_Position = mvp * vec4(pos, 1.0f);\n"
             "}\0";
 
@@ -340,9 +342,6 @@ int main(const int argc, const char ** argv) {
 
         line_shader_mvp_loc = glGetUniformLocation(line_shader, "mvp");
         line_shader_color_loc = glGetUniformLocation(line_shader, "color");
-
-        proj_loc = glGetUniformLocation(line_shader, "proj");
-        view_loc = glGetUniformLocation(line_shader, "view");
 
         // unbind 
         glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -545,14 +544,13 @@ int main(const int argc, const char ** argv) {
 
             if(iak[0].value.i) { vel_x -= 1.0f; }
             if(iak[1].value.i) { vel_x += 1.0f; }
-            if(iak[2].value.i) { vel_y += 1.0f; }
-            if(iak[3].value.i) { vel_y -= 1.0f; }
+            if(iak[2].value.i) { vel_y -= 1.0f; }
+            if(iak[3].value.i) { vel_y += 1.0f; }
         }
-      
-        // actually the camera that moves and not the model.
-        dx -= vel_x * c_force_x * frame_delta_time;
-        dy -= vel_y * c_force_y * frame_delta_time;
-      
+
+        dx += vel_x * c_force_x * frame_delta_time;
+        dy += vel_y * c_force_y * frame_delta_time;
+
         end = get_time_us();
         total_timing[TT_INPUT] += end - start;
 
@@ -580,13 +578,17 @@ int main(const int argc, const char ** argv) {
 
         float line_color[3] = { 1.0f, 1.0f, 1.0f };
 
-        mat4 m_model, m_proj, m_view, m_mvp;
+        mat4 m_model, m_proj, m_view, m_vp, m_mvp;
 
         identity_mat4(&m_model);
         identity_mat4(&m_proj);
         identity_mat4(&m_view);
         identity_mat4(&m_mvp);
+        identity_mat4(&m_vp);
         
+        // translate + rotate model
+        translate_mat4(dx, dy, 0, &m_model);
+
         // perspective
         float fov = 90.0f;
         float aspect_ratio = 640.0f / 480.0f;
@@ -599,13 +601,14 @@ int main(const int argc, const char ** argv) {
         // horrid
         // set_vec3(dx, dy, 1, &eye);
 
-        set_vec3(0, 0, dy, &eye);
+        set_vec3(0, 0, 1.0, &eye);
         set_vec3(0, 0, -1, &dir);
         set_vec3(0, 1, 0, &up); 
         lookat_mat4(eye, dir, up, &m_view);
         
         // mul opengl 
-        mul_mat4(&m_proj, &m_view, &m_mvp); 
+        mul_mat4(&m_proj, &m_view, &m_vp); // same view & proj for all models
+        mul_mat4(&m_vp, &m_model, &m_mvp); 
 
         glBindVertexArray(line_vao);
         glBindBuffer(GL_ARRAY_BUFFER, line_vbo);
@@ -613,9 +616,6 @@ int main(const int argc, const char ** argv) {
 
         glUniform3fv(line_shader_color_loc, 1, (GLfloat*)line_color);
         glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
-
-        glUniformMatrix4fv(proj_loc, 1, GL_FALSE, (GLfloat*)m_proj.v);
-        glUniformMatrix4fv(view_loc, 1, GL_FALSE, (GLfloat*)m_view.v);
         
         line_color[0] = line_color[1] = line_color[2] = 1.0f;
         glUniform3fv(line_shader_color_loc, 1, (GLfloat*)line_color);
@@ -667,12 +667,14 @@ int main(const int argc, const char ** argv) {
     total_timing[TT_DEINIT] = end - start;
     
     // runtime info:
-    {
+    if(1) {
+        printf("\n########################################\n");
+        
         // total runtime;
         unsigned long long int runtime = 0;
         unsigned long long int active_frame_time = 0;
+        
         float percent[TT_MAX];
-
         int i = 0;
         while(i < TT_MAX) {
             runtime += total_timing[i];
@@ -681,25 +683,33 @@ int main(const int argc, const char ** argv) {
 
         active_frame_time = total_timing[TT_INPUT] + total_timing[TT_COMPUTE] + total_timing[TT_RENDER];
 
-        printf("\nruntime info:\n");
-        printf("num frames:    %llu\n", frame_count);
-        printf("startup time:  %llu ms\n", total_timing[TT_INIT] / 1000);
-        printf("cleanup time:  %llu ms\n", total_timing[TT_DEINIT] / 1000);
 
         // calc percent
         for(i = 0; i < TT_MAX; i++) {
             percent[i] = (float)total_timing[i] / (float)runtime; // 0..1
             percent[i] *= 100.0f; // to scale 0..100
-        }   
+        }
 
-        printf("\n");
-        printf("frame_timings:\n");
+        printf("\nruntime info:\n");
+        printf("num frames:    %'9llu\n", frame_count);
+        
+        printf("\nTimings:\n");
+        for(i = 0; i < TT_MAX; i++) {
+            printf("  %-9s %'9llu ms (%-5.2f %%)\n", time_tag_name[i], total_timing[i] / 1000, percent[i]);
+        }
+#if 0
+        printf("startup time:  %'9llu ms (%-5.2f %%)\n", total_timing[TT_INIT] / 1000, percent[TT_INIT]);
+        printf("cleanup time:  %'9llu ms (%-5.2f %%)\n", total_timing[TT_DEINIT] / 1000, percent[TT_DEINIT]);
+
+        printf("\nframe runtime info:\n");
         printf("input time:    %'9llu ms (%-5.2f %%)\n", total_timing[TT_INPUT] / 1000, percent[TT_INPUT]);
         printf("update time:   %'9llu ms (%-5.2f %%)\n", total_timing[TT_COMPUTE] / 1000, percent[TT_COMPUTE]);
         printf("render time:   %'9llu ms (%-5.2f %%)\n", total_timing[TT_RENDER] / 1000, percent[TT_RENDER]);
         printf("sleep time:    %'9llu ms (%-5.2f %%)\n", total_timing[TT_SLEEP] / 1000, percent[TT_SLEEP]);
+#endif   
+        printf("\ntotal runtime: %'9llu ms (%-5.2f %%)\n", runtime / 1000, 100.0f); 
         
-        printf("\ntotal runtime: %'9llu ms\n", runtime / 1000); 
+        printf("\n########################################\n");
     }
 
     return 0;
