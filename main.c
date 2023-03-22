@@ -356,20 +356,30 @@ int main(const int argc, const char ** argv) {
     elapsed = end - start;
     total_timing[TT_INIT] = elapsed;
 
+    // cam movement
     float dx = 0.0f;
-    
+    float dy = 0.0f;
+    float c_force_x = 8.0f;
+    float c_force_y = 8.0f;
+    float vel_x, vel_y;
+
     // TODO: remappable keys
     // TODO: keylogger and replayer 
+    // TODO: separete modules for the remapper and keylogger (always live but only fires if needed)
 
     struct input_key {
+        // int tag; // action key map
         unsigned long int keysym;
         int value;
     };
 
     int num_keys = 4;
     int is_remapping = 0, map_index = -1;
+    
     struct input_key iks[4];
     memset(iks, 0, sizeof(struct input_key) * num_keys);
+
+    // keep this default loader for the input
     iks[0].keysym = SDLK_LEFT;
     iks[1].keysym = SDLK_RIGHT;
     iks[2].keysym = SDLK_UP;
@@ -381,7 +391,6 @@ int main(const int argc, const char ** argv) {
     while(!quit) {
         frame_start = get_time_us();
         
-        float mv_dir = 0.0f;
         start = frame_start;
         // read input:
         while(SDL_PollEvent(&sdl_event) != 0) {
@@ -453,17 +462,18 @@ int main(const int argc, const char ** argv) {
 		    }
 	    }
 
-        mv_dir = 0;
+        vel_x = 0.0f;
+        vel_y = 0.0f;
+
         // post
-        if(iks[0].value) {
-            mv_dir -= 1.0f;            
-        }
+        if(iks[0].value) { vel_x -= 1.0f; }
+        if(iks[1].value) { vel_x += 1.0f; }
+        if(iks[2].value) { vel_y += 1.0f; }
+        if(iks[3].value) { vel_y -= 1.0f; }
 
-        if(iks[1].value) {
-            mv_dir += 1.0f;            
-        }
-
-        dx -= mv_dir * 10 * frame_delta_time;
+        // actually the camera that moves and not the model.
+        dx -= vel_x * c_force_x * frame_delta_time;
+        dy -= vel_y * c_force_y * frame_delta_time;
         
         #if 0
         // handle input
@@ -521,7 +531,7 @@ int main(const int argc, const char ** argv) {
         // camera / lookat -> view
         vec3 eye, dir, up;
         // horrid
-        set_vec3(dx, 0, 1, &eye);
+        set_vec3(dx, dy, 1, &eye);
         set_vec3(0, 0, -1, &dir);
         set_vec3(0, 1, 0, &up); 
         lookat_mat4(eye, dir, up, &m_view);
