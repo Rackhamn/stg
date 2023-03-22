@@ -131,8 +131,14 @@ void copy_mat4(mat4 * target, mat4 * source) {
     memcpy(source->v, target->v, sizeof(float) * 16);
 }
 
+void translate_mat4(float x, float y, float z, mat4 * m) {
+    m->v[12] = x;
+    m->v[13] = y;
+    m->v[14] = z;
+}
+
 void perspective_mat4(float fov, float aspect_ratio, float z_near, float z_far, mat4 * m) {
-    float f, fn;    
+    float f, fn;
     zero_mat4(m);
     
     f = 1.0f / tanf(fov * 0.5f);

@@ -683,7 +683,6 @@ int main(const int argc, const char ** argv) {
 
         active_frame_time = total_timing[TT_INPUT] + total_timing[TT_COMPUTE] + total_timing[TT_RENDER];
 
-
         // calc percent
         for(i = 0; i < TT_MAX; i++) {
             percent[i] = (float)total_timing[i] / (float)runtime; // 0..1
@@ -697,16 +696,7 @@ int main(const int argc, const char ** argv) {
         for(i = 0; i < TT_MAX; i++) {
             printf("  %-9s %'9llu ms (%-5.2f %%)\n", time_tag_name[i], total_timing[i] / 1000, percent[i]);
         }
-#if 0
-        printf("startup time:  %'9llu ms (%-5.2f %%)\n", total_timing[TT_INIT] / 1000, percent[TT_INIT]);
-        printf("cleanup time:  %'9llu ms (%-5.2f %%)\n", total_timing[TT_DEINIT] / 1000, percent[TT_DEINIT]);
 
-        printf("\nframe runtime info:\n");
-        printf("input time:    %'9llu ms (%-5.2f %%)\n", total_timing[TT_INPUT] / 1000, percent[TT_INPUT]);
-        printf("update time:   %'9llu ms (%-5.2f %%)\n", total_timing[TT_COMPUTE] / 1000, percent[TT_COMPUTE]);
-        printf("render time:   %'9llu ms (%-5.2f %%)\n", total_timing[TT_RENDER] / 1000, percent[TT_RENDER]);
-        printf("sleep time:    %'9llu ms (%-5.2f %%)\n", total_timing[TT_SLEEP] / 1000, percent[TT_SLEEP]);
-#endif   
         printf("\ntotal runtime: %'9llu ms (%-5.2f %%)\n", runtime / 1000, 100.0f); 
         
         printf("\n########################################\n");
