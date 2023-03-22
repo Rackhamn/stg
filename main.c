@@ -186,7 +186,6 @@ int main(const int argc, const char ** argv) {
 
     printf ("glGetString (GL_VERSION) returns %s\n", glGetString (GL_VERSION));
 
-    #if 0
     // actually situationally dependant (diff between see-through models)
     glFrontFace(GL_CCW);
     glEnable(GL_CULL_FACE);
@@ -196,7 +195,6 @@ int main(const int argc, const char ** argv) {
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    #endif
 
     glViewport(0, 0, 640, 480);
 
@@ -236,19 +234,19 @@ int main(const int argc, const char ** argv) {
             "#version 130\n"
             "uniform mat4 proj;\n"
             "uniform mat4 view;\n"            
+            "uniform mat4 mvp;\n"
             "in vec3 pos;\n"
             "void main() {\n"
-            "\tmat4 mvp = proj * view;\n"
+            // "\tmat4 mvp = proj * view;\n"
             "\tgl_Position = mvp * vec4(pos, 1.0f);\n"
             "}\0";
-            // "uniform mat4 mvp;\n"
 
         const char * line_fragment_shader_src = 
             "#version 130\n"
             "uniform vec3 color;\n"
             "out vec4 fragcolor;\n"
             "void main() {\n"
-            "\tfragcolor = vec4(1.0f, 1.0f, 1.0f, 1.0f);\n"
+            "\tfragcolor = vec4(color, 1.0f);\n"
             "}\0";
         #endif
     
@@ -328,31 +326,19 @@ int main(const int argc, const char ** argv) {
         glBindBuffer(GL_ARRAY_BUFFER, line_vbo);
 
         // push data once
-        // 32 * vec3
-        float point_buffer[96];
-        int i = 0;
-        while(i < 32) {
-            int j = i * 3;
-            point_buffer[j + 0] = 1 * j;
-            point_buffer[j + 1] = 1 * j;
-            point_buffer[j + 2] = 0.0f;
-            i += 1;
-        }
-
         float vertices[] = {
             -0.5f, -0.5f, 0.0f,
              0.5f, -0.5f, 0.0f,
              0.0f,  0.5f, 0.0f
         };
 
-        // float line_vertices[6] = { -1, -1, -1, 1, 1, 1 }; // two vec3 points  
         glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 9, &vertices, GL_STATIC_DRAW);
 
         // setup how data is read and enable it
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
 
-        //line_shader_mvp_loc = glGetUniformLocation(line_shader, "mvp");
+        line_shader_mvp_loc = glGetUniformLocation(line_shader, "mvp");
         line_shader_color_loc = glGetUniformLocation(line_shader, "color");
 
         proj_loc = glGetUniformLocation(line_shader, "proj");
@@ -370,20 +356,118 @@ int main(const int argc, const char ** argv) {
     elapsed = end - start;
     total_timing[TT_INIT] = elapsed;
 
+    float dx = 0.0f;
+    
+    // TODO: remappable keys
+
+    unsigned long int left_key, right_key;
+    int left_key_state, right_key_state;
+
+    int is_remapping = 0, map_index = -1;
+    left_key = SDLK_LEFT;  
+    right_key = SDLK_RIGHT;
+    left_key_state = 0;
+    right_key_state = 0;
+
     unsigned long long int frame_start, frame_end, frame_elapsed;
     while(!quit) {
         frame_start = get_time_us();
-
+        
+        float mv_dir = 0.0f;
         start = frame_start;
-        // handle input:
+        // read input:
         while(SDL_PollEvent(&sdl_event) != 0) {
 		    switch(sdl_event.type) {
+                 case SDL_KEYDOWN:
+                    if(sdl_event.key.keysym.sym == SDLK_q) {
+                        if(is_remapping) {
+                            printf("stop remapping.\n");
+                            is_remapping = 0;
+                        } else {
+                            printf("start remapping.\n");
+                            is_remapping = 1;                        
+                        }  
+                    } 
+
+                    if(is_remapping) {
+                        if(map_index == -1) {
+                            // press the key you want to change
+                            if(sdl_event.key.keysym.sym == left_key) {
+                                printf("mapping index 0\n");
+                                map_index = 0;
+                            }
+                            if(sdl_event.key.keysym.sym == right_key) {
+                                printf("mapping index 1\n");
+                                map_index = 1;
+                            }
+                        } else {
+                            // assign a key to mapping index
+                            if(sdl_event.key.keysym.sym != SDLK_q) {
+                                switch(map_index) {
+                                    case 0:
+                                        left_key = sdl_event.key.keysym.sym;
+                                        printf("mapped LEFT to %s\n", SDL_GetKeyName(sdl_event.key.keysym.sym));
+                                        map_index = -1;
+                                    break;
+                                    case 1:
+                                        right_key = sdl_event.key.keysym.sym;
+                                        printf("mapped RIGHT to %s\n", SDL_GetKeyName(sdl_event.key.keysym.sym));
+                                        map_index = -1;
+                                        // is_remapping = 0;
+                                    break;
+                                }
+                            }
+                        }
+                    } else {
+                        // regular input 
+                        if(sdl_event.key.keysym.sym == left_key) {
+                            left_key_state = 1;
+                        }
+                        if(sdl_event.key.keysym.sym == right_key) {
+                            right_key_state = 1;
+                        }
+                    }
+                    
+                break;
+                case SDL_KEYUP:
+                    // sdl_keys[sdl_event.key.keysym.sym] = 0; 
+                    if(sdl_event.key.keysym.sym == left_key) {
+                        left_key_state = 0;
+                    }
+                    if(sdl_event.key.keysym.sym == right_key) {
+                        right_key_state = 0;
+                    }
+                break;
 			    case SDL_QUIT:
 				    printf("cmd: sdl_window_quit\n");
 				    quit = 1;
 			    break;
 		    }
 	    }
+
+        // post
+        if(left_key_state) {
+            mv_dir -= 1.0f;            
+        }
+
+        if(right_key_state) {
+            mv_dir += 1.0f;            
+        }
+
+        dx -= mv_dir * 10 * frame_delta_time;
+        
+        #if 0
+        // handle input
+        if(1) {
+            if(sdl_keys[SDLK_LEFT]) {
+                dx -= 10 * frame_delta_time;
+            }
+            if(sdl_keys[SDLK_RIGHT]) {
+                dx += 10 * frame_delta_time;
+            }
+        }
+        #endif
+
         end = get_time_us();
         total_timing[TT_INPUT] += end - start;
 
@@ -428,7 +512,7 @@ int main(const int argc, const char ** argv) {
         // camera / lookat -> view
         vec3 eye, dir, up;
         // horrid
-        set_vec3(0, 0, 1, &eye);
+        set_vec3(dx, 0, 1, &eye);
         set_vec3(0, 0, -1, &dir);
         set_vec3(0, 1, 0, &up); 
         lookat_mat4(eye, dir, up, &m_view);
@@ -440,12 +524,14 @@ int main(const int argc, const char ** argv) {
         glBindBuffer(GL_ARRAY_BUFFER, line_vbo);
         glUseProgram(line_shader);
 
-        // glUniform3fv(line_shader_color_loc, 1, (GLfloat*)line_color);
-        // glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
+        glUniform3fv(line_shader_color_loc, 1, (GLfloat*)line_color);
+        glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
 
         glUniformMatrix4fv(proj_loc, 1, GL_FALSE, (GLfloat*)m_proj.v);
         glUniformMatrix4fv(view_loc, 1, GL_FALSE, (GLfloat*)m_view.v);
-
+        
+        line_color[0] = line_color[1] = line_color[2] = 1.0f;
+        glUniform3fv(line_shader_color_loc, 1, (GLfloat*)line_color);
         glDrawArrays(GL_TRIANGLES, 0, 3); 
 
         glUseProgram(0);
@@ -521,12 +607,12 @@ int main(const int argc, const char ** argv) {
 
         printf("\n");
         printf("frame_timings:\n");
-        printf("input time:    %llu ms\t(%-5.2f %%)\n", total_timing[TT_INPUT] / 1000, percent[TT_INPUT]);
-        printf("update time:   %llu ms\t(%-5.2f %%)\n", total_timing[TT_COMPUTE] / 1000, percent[TT_COMPUTE]);
-        printf("render time:   %llu ms\t(%-5.2f %%)\n", total_timing[TT_RENDER] / 1000, percent[TT_RENDER]);
-        printf("sleep time:    %llu ms\t(%-5.2f %%)\n", total_timing[TT_SLEEP] / 1000, percent[TT_SLEEP]);
+        printf("input time:    %'9llu ms (%-5.2f %%)\n", total_timing[TT_INPUT] / 1000, percent[TT_INPUT]);
+        printf("update time:   %'9llu ms (%-5.2f %%)\n", total_timing[TT_COMPUTE] / 1000, percent[TT_COMPUTE]);
+        printf("render time:   %'9llu ms (%-5.2f %%)\n", total_timing[TT_RENDER] / 1000, percent[TT_RENDER]);
+        printf("sleep time:    %'9llu ms (%-5.2f %%)\n", total_timing[TT_SLEEP] / 1000, percent[TT_SLEEP]);
         
-        printf("\ntotal runtime: %llu ms\n", runtime / 1000); 
+        printf("\ntotal runtime: %'9llu ms\n", runtime / 1000); 
     }
 
     return 0;
