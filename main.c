@@ -373,119 +373,183 @@ int main(const int argc, const char ** argv) {
         int value;
     };
 
-    int num_keys = 4;
-    int is_remapping = 0, map_index = -1;
-    
-    // SDL_NUM_SCANCODES = 512
-    struct input_key iks[SDL_NUM_SCANCODES];
-    memset(iks, 0, sizeof(struct input_key) * num_keys);
+    struct index_map {
+        int from;
+        int to;
+    };
 
-    // keep this default loader for the input
-    #if 0    
-    iks[0].keysym = SDLK_LEFT;
-    iks[1].keysym = SDLK_RIGHT;
-    iks[2].keysym = SDLK_UP;
-    iks[3].keysym = SDLK_DOWN;
-    #endif
+    struct input_action_key {
+        int tag;
+        int value;
+    };
 
-    iks[SDL_SCANCODE_LEFT].keysym = SDLK_LEFT;
-    iks[SDL_SCANCODE_RIGHT].keysym = SDLK_RIGHT;
-    iks[SDL_SCANCODE_DOWN].keysym = SDLK_UP;
-    iks[SDL_SCANCODE_UP].keysym = SDLK_DOWN;
+
+    int is_remapping = 0;
+    int im_index = -1;
+    struct index_map c_im_kb;
+
+    int                     in_kb[SDL_NUM_SCANCODES]; 
+    struct index_map        im_kb[4];
+    struct input_action_key iak[4]; // keep one per frame
+
+    int                     in_kb_prev[SDL_NUM_SCANCODES];
+    struct index_map        im_kb_prev[4];
+    struct input_action_key iak_prev[4]; 
+
+    memset(in_kb, 0, sizeof(int) * SDL_NUM_SCANCODES);
+    memset(in_kb_prev, 0, sizeof(int) * SDL_NUM_SCANCODES);
+
+    im_kb[0].from = SDL_SCANCODE_LEFT;
+    im_kb[0].to = 0;
+    im_kb[1].from = SDL_SCANCODE_RIGHT;
+    im_kb[1].to = 1;
+    im_kb[2].from = SDL_SCANCODE_DOWN;
+    im_kb[2].to = 2;
+    im_kb[3].from = SDL_SCANCODE_UP;
+    im_kb[3].to = 3;
+
+    c_im_kb.from = -1;
+    c_im_kb.to = -1;
+
+    memset(iak, 0, sizeof(struct input_action_key) * 4);
+    memset(iak_prev, 0, sizeof(struct input_action_key) * 4);
+    iak[0].tag = 0;
+    iak[1].tag = 1;
+    iak[2].tag = 2;
+    iak[3].tag = 3;
 
     unsigned long long int frame_start, frame_end, frame_elapsed;
-    
-    long int scancode;    
+
+    long int scancode;
     long int keysym;
     
     while(!quit) {
         frame_start = get_time_us();
-        
+    
+        // ok        
+        vel_x = 0.0f;
+        vel_y = 0.0f;
+
+        memcpy(in_kb_prev, in_kb, sizeof(int) * SDL_NUM_SCANCODES);
+        memcpy(iak_prev, iak, sizeof(struct input_action_key) * 4);
+
         start = frame_start;
         // read input:
         while(SDL_PollEvent(&sdl_event) != 0) {
 		    switch(sdl_event.type) {
                  case SDL_KEYDOWN: {
                     scancode = sdl_event.key.keysym.scancode;
-                    keysym = sdl_event.key.keysym.sym;
-
-                    if(keysym == SDLK_q) {
-                        if(is_remapping) {
-                            printf("stop remapping.\n");
-                            is_remapping = 0;
-                            map_index = -1;
-                        } else {
-                            printf("start remapping.\n");
-                            is_remapping = 1;
-                            map_index = -1;                        
-                        }
-                        break;
-                    } 
-
-                    if(is_remapping) {
-                        if(map_index == -1) {
-                            // press the key you want to change
-                            unsigned long int _keysym = iks[scancode].keysym;
-                            map_index = scancode;
-                            printf("mapping index %i (keysym: %s)\n", map_index, SDL_GetKeyName(_keysym));
-                        } else {
-                            // assign a key to mapping index
-                            // make sure that any other keys using the same keysym will be removed
-                            if(keysym != SDLK_q) {
-                                printf("mapped index %i (keysym: %s) to %s\n", map_index,
-                                    SDL_GetKeyName(iks[map_index].keysym),
-                                    SDL_GetKeyName(keysym));
-
-                                iks[map_index].keysym = keysym;
-                                map_index = -1;
-                            }
-                        }
-                    } else {
-                        // regular input 
-                        // poor linear search
-
-                        iks[scancode].value = 1;
-
-                    }
+                    in_kb[scancode] = 1;
                 } break;
                 case SDL_KEYUP: {
                     scancode = sdl_event.key.keysym.scancode;
-                    keysym = sdl_event.key.keysym.sym;
-
-                    iks[scancode].value = 0;
+                    in_kb[scancode] = 0;
                 } break;
-			    case SDL_QUIT:
+			    case SDL_QUIT: {
 				    printf("cmd: sdl_window_quit\n");
 				    quit = 1;
-			    break;
+			    } break;
 		    }
 	    }
+        
+        // TODO: move mapping to separete module!
+        if(in_kb[SDL_SCANCODE_Q] && !in_kb_prev[SDL_SCANCODE_Q]) { // hacky inital check
+            is_remapping = !is_remapping;
+            if(is_remapping) {
+                printf("start remapping\n");
+                c_im_kb.from = -1;
+                c_im_kb.to = -1;
+                im_index = -1;
+            } else {
+                printf("stopped remapping\n");
+                c_im_kb.from = -1;
+                c_im_kb.to = -1;
+                im_index = -1;
+            }
+        }
 
-        vel_x = 0.0f;
-        vel_y = 0.0f;
+        if(is_remapping && !in_kb[SDL_SCANCODE_Q]) {
+            const char * scancode_name = NULL;
+            
+            if(im_index == -1) {
+                // await scancode to edit
+                
+                // find first key pressed this frame using scancode
+                for(int i = 0; i < SDL_NUM_SCANCODES; i++) {
+                    if(in_kb[i] && !in_kb_prev[i]) {
+                        
+                        scancode_name = SDL_GetScancodeName(i);
+                        printf("check scancode: %i, %s\n", i, scancode_name); 
+                        
+                        // find if scancode is actually used in current mapping
+                        for(int j = 0; j < 4; j++) {
+                            if(im_kb[j].from == i) {
+                                printf("found mapping at %i for given scancode %i, %s\n", j, i, scancode_name);
+                                im_index = j;
+                                break;
+                            } 
+                        }
 
-        // post
-        if(iks[SDL_SCANCODE_LEFT].value) { vel_x -= 1.0f; }
-        if(iks[SDL_SCANCODE_RIGHT].value) { vel_x += 1.0f; }
-        if(iks[SDL_SCANCODE_UP].value) { vel_y += 1.0f; }
-        if(iks[SDL_SCANCODE_DOWN].value) { vel_y -= 1.0f; }
+                        if(im_index == -1)
+                            printf("scancode %i, %s is not used in any mappings\n", i, scancode_name);
+        
+                    }               
+                }
+            } else {
+                // await scancode to swap to
 
+                // find first key pressed this frame using scancode
+                for(int i = 0; i < SDL_NUM_SCANCODES; i++) {
+                    if(in_kb[i] && !in_kb_prev[i]) {
+
+                        const char * prev_scancode_name = SDL_GetScancodeName(im_kb[im_index].from);
+                        scancode_name = SDL_GetScancodeName(i);
+
+                        printf("changed scancode %i, %s to %i, %s\n", 
+                                                im_kb[im_index].from, prev_scancode_name, 
+                                                i, scancode_name);
+                        
+                        im_kb[im_index].from = i;
+
+                        // TODO: handle multiple mappings using the same key -> removal
+                        for(int j = 0; j < 4; j++) {
+                            if(j != im_index) {
+                                if(im_kb[j].from == i) {
+                                    // mapping already existed. prioritise the new mapping and remove the previus one.
+                                    im_kb[j].from = -1;
+                                }
+                            }
+                        }
+
+                        im_index = -1;
+                        break;
+                    }
+                }
+            }
+        }
+        else {
+            // use the mapping to read stuff 
+            struct index_map _im;
+            for(int i = 0; i < 4; i++) {
+                _im = im_kb[i];
+                if(_im.from > -1 && _im.to > -1) {
+                    iak[_im.to].value = in_kb[_im.from];
+                } else {
+                    // something is wrong with the mapping, clear to 0
+                    if(_im.to > -1) iak[_im.to].value = 0;
+                }
+            }
+
+            if(iak[0].value) { vel_x -= 1.0f; }
+            if(iak[1].value) { vel_x += 1.0f; }
+            if(iak[2].value) { vel_y += 1.0f; }
+            if(iak[3].value) { vel_y -= 1.0f; }
+        }
+      
         // actually the camera that moves and not the model.
         dx -= vel_x * c_force_x * frame_delta_time;
         dy -= vel_y * c_force_y * frame_delta_time;
-        
-        #if 0
-        // handle input
-        if(1) {
-            if(sdl_keys[SDLK_LEFT]) {
-                dx -= 10 * frame_delta_time;
-            }
-            if(sdl_keys[SDLK_RIGHT]) {
-                dx += 10 * frame_delta_time;
-            }
-        }
-        #endif
-
+      
         end = get_time_us();
         total_timing[TT_INPUT] += end - start;
 
@@ -530,7 +594,9 @@ int main(const int argc, const char ** argv) {
         // camera / lookat -> view
         vec3 eye, dir, up;
         // horrid
-        set_vec3(dx, dy, 1, &eye);
+        // set_vec3(dx, dy, 1, &eye);
+
+        set_vec3(0, 0, dy, &eye);
         set_vec3(0, 0, -1, &dir);
         set_vec3(0, 1, 0, &up); 
         lookat_mat4(eye, dir, up, &m_view);
