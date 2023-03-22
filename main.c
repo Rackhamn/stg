@@ -358,7 +358,7 @@ int main(const int argc, const char ** argv) {
 
     // cam movement
     float dx = 0.0f;
-    float dy = 0.0f;
+    float dy = 1.0f;
     float c_force_x = 8.0f;
     float c_force_y = 8.0f;
     float vel_x, vel_y;
@@ -366,6 +366,7 @@ int main(const int argc, const char ** argv) {
     // TODO: remappable keys
     // TODO: keylogger and replayer 
     // TODO: separete modules for the remapper and keylogger (always live but only fires if needed)
+    // TODO: add copy of the map during mapping so that you then can APPLY or DISCARD changes. (can also mask changes)
 
     struct input_key {
         // int tag; // action key map
@@ -380,9 +381,11 @@ int main(const int argc, const char ** argv) {
 
     struct input_action_key {
         int tag;
-        int value;
+        union {
+            int i;
+            float f;
+        } value;
     };
-
 
     int is_remapping = 0;
     int im_index = -1;
@@ -533,17 +536,17 @@ int main(const int argc, const char ** argv) {
             for(int i = 0; i < 4; i++) {
                 _im = im_kb[i];
                 if(_im.from > -1 && _im.to > -1) {
-                    iak[_im.to].value = in_kb[_im.from];
+                    iak[_im.to].value.i = in_kb[_im.from];
                 } else {
                     // something is wrong with the mapping, clear to 0
-                    if(_im.to > -1) iak[_im.to].value = 0;
+                    if(_im.to > -1) iak[_im.to].value.i = 0;
                 }
             }
 
-            if(iak[0].value) { vel_x -= 1.0f; }
-            if(iak[1].value) { vel_x += 1.0f; }
-            if(iak[2].value) { vel_y += 1.0f; }
-            if(iak[3].value) { vel_y -= 1.0f; }
+            if(iak[0].value.i) { vel_x -= 1.0f; }
+            if(iak[1].value.i) { vel_x += 1.0f; }
+            if(iak[2].value.i) { vel_y += 1.0f; }
+            if(iak[3].value.i) { vel_y -= 1.0f; }
         }
       
         // actually the camera that moves and not the model.
