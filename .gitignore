@@ -6,5 +6,9 @@
 # ignore any files without extension
 /[^\.]*
 
+# keep .c and .h 
+!*.c
+!*.h
+
 # ignore build folder
 build/

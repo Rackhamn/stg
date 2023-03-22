@@ -10,6 +10,10 @@
 
 #include "time.c"
 
+#include "mat4.h"
+
+#define A2R		(0.01745329252f)
+
 /*
     opengl
         1. simple deffered shader
@@ -40,12 +44,6 @@
 
 */
 
-const float identity_mat4[16] = 
-  { 1.0f, 0.0f, 0.0f, 0.0f,
-    0.0f, 1.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 1.0f, 0.0f, 
-    0.0f, 0.0f, 0.0f, 1.0f };
-
 struct render_data_s {
     int vbo_count, vao_count;
     int * vbos, * vaos;
@@ -68,7 +66,17 @@ enum time_tag {
     TT_MAX
 };
 
-// $ gcc main.c -o build/a.out -lSDL2 -lGL -lGLEW
+struct shader {
+    int id;
+    char * tag;
+    
+    // map:
+    int loc_count;
+    char * loc_tags;    // key
+    GLuint * locs;      // value
+};
+
+// $ gcc main.c -o build/a.out -lm -lSDL2 -lGL -lGLEW
 int main(const int argc, const char ** argv) {
 
     int quit = 0;
@@ -164,64 +172,152 @@ int main(const int argc, const char ** argv) {
     // v-sync with monitor refresh rate
 	SDL_GL_SetSwapInterval(0); // disable vsync for N-fps
 
-    // set GL attributes for api	
+    // set GL attributes for api
+    SDL_GL_SetAttribute (SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16); // 24
 
     // init glew (gl bindings)
     glewInit();
 	glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+
+    printf ("glGetString (GL_VERSION) returns %s\n", glGetString (GL_VERSION));
+
+    #if 0
+    // actually situationally dependant (diff between see-through models)
+    glFrontFace(GL_CCW);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+
 	glEnable(GL_TEXTURE_2D);
+
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    #endif
+
+    glViewport(0, 0, 640, 480);
 
     // red backgroud
     glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
 
-    printf("\nrender_data_s\n");
     printf("* compile line shader\n");
     
-    int line_vao, line_vbo, line_shader;
+    GLuint line_vao, line_vbo, line_shader;
+    GLuint line_shader_mvp_loc, proj_loc, view_loc; 
+    GLuint line_shader_color_loc;
 
     {
+        // does not work on my pc -> needs newer opengl version
+        #if 0
         const char * line_vertex_shader_src = 
             "#version 330 core\n"
             "layout (location = 0) in vec3 pos;\n"
-            "uniform mat4 mvp;\n"
+            "uniform mat4 proj;\n"
+            "uniform mat4 view;\n"            
             "void main() { \n"
+            "\tmat4 mvp = view * proj;\n"
             "\tgl_Position = mvp * vec4(pos, 1.0f);\n"
             "}\0";
+            // "uniform mat4 mvp;\n"
 
         const char * line_fragment_shader_src = 
             "#version 330 core\n"
             "out vec4 fragcolor;\n"
-            "uniform mat3 color;\n"
+            "uniform vec3 color;\n"
             "void main() { \n"
             "\tfragcolor = vec4(color, 1.0f);\n"
             "}\0";
+        #else
+
+        const char * line_vertex_shader_src = 
+            "#version 130\n"
+            "uniform mat4 proj;\n"
+            "uniform mat4 view;\n"            
+            "in vec3 pos;\n"
+            "void main() {\n"
+            "\tmat4 mvp = proj * view;\n"
+            "\tgl_Position = mvp * vec4(pos, 1.0f);\n"
+            "}\0";
+            // "uniform mat4 mvp;\n"
+
+        const char * line_fragment_shader_src = 
+            "#version 130\n"
+            "uniform vec3 color;\n"
+            "out vec4 fragcolor;\n"
+            "void main() {\n"
+            "\tfragcolor = vec4(1.0f, 1.0f, 1.0f, 1.0f);\n"
+            "}\0";
+        #endif
     
         int vertex_shader = glCreateShader(GL_VERTEX_SHADER);
         glShaderSource(vertex_shader, 1, &line_vertex_shader_src, NULL);
         glCompileShader(vertex_shader);
         // check for errors etc
+        GLint status;
+        glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &status);
+        if(status == GL_FALSE )
+        {
+            char buf[1024];
+            GLint logLen;
+            glGetShaderiv( vertex_shader, GL_INFO_LOG_LENGTH, &logLen );
+            GLsizei written;
+            glGetShaderInfoLog( vertex_shader, logLen, &written, buf);
+            printf("vs: comp err: %s\n", buf);
+        }
 
         int fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
         glShaderSource(fragment_shader, 1, &line_fragment_shader_src, NULL);
         glCompileShader(fragment_shader);
 
+        glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &status);
+        if(status == GL_FALSE )
+        {
+            char buf[1024];
+            GLint logLen;
+            glGetShaderiv( fragment_shader, GL_INFO_LOG_LENGTH, &logLen );
+            GLsizei written;
+            glGetShaderInfoLog( fragment_shader, logLen, &written, buf );
+            printf("fs: comp err: %s\n", buf);
+        }
+
+
         // link to shader program
         int shader_program = glCreateProgram();
+        // glBindAttribLocation(shader_program, 0, "pos");
+
         glAttachShader(shader_program, vertex_shader);
         glAttachShader(shader_program, fragment_shader);
         glLinkProgram(shader_program);
         // check linkage error etc
+        glGetProgramiv( shader_program, GL_LINK_STATUS, &status );
+        if ( status == GL_FALSE )
+        {
+            char buf[1024];
+            GLint logLen;
+            glGetProgramiv( shader_program, GL_INFO_LOG_LENGTH, &logLen );
+            GLsizei written;
+            glGetProgramInfoLog( shader_program, logLen, &written, buf );
+            printf("link err: %s\n", buf);
+        }
+        glValidateProgram(shader_program);
+        glGetProgramiv(shader_program, GL_VALIDATE_STATUS, &status);
+        if (!status) {
+            char buf[1024];
+            GLint logLen;
+            glGetProgramiv( shader_program, GL_INFO_LOG_LENGTH, &logLen );
+            GLsizei written;
+            glGetProgramInfoLog( shader_program, logLen, &written, buf );
+            printf("link valid err: %s\n", buf);
+        }
 
         glDeleteShader(vertex_shader);
         glDeleteShader(fragment_shader);
 
         line_shader = shader_program;
+        glUseProgram(line_shader);
 
         // gen space
         glGenVertexArrays(1, &line_vao);
@@ -232,18 +328,42 @@ int main(const int argc, const char ** argv) {
         glBindBuffer(GL_ARRAY_BUFFER, line_vbo);
 
         // push data once
-        float line_vertices[6] = { 0.1, 0.1, 1.0, 0.9, 0.9, 1.0 }; // two vec3 points  
-        glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6, &line_vertices, GL_STATIC_DRAW);
+        // 32 * vec3
+        float point_buffer[96];
+        int i = 0;
+        while(i < 32) {
+            int j = i * 3;
+            point_buffer[j + 0] = 1 * j;
+            point_buffer[j + 1] = 1 * j;
+            point_buffer[j + 2] = 0.0f;
+            i += 1;
+        }
+
+        float vertices[] = {
+            -0.5f, -0.5f, 0.0f,
+             0.5f, -0.5f, 0.0f,
+             0.0f,  0.5f, 0.0f
+        };
+
+        // float line_vertices[6] = { -1, -1, -1, 1, 1, 1 }; // two vec3 points  
+        glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 9, &vertices, GL_STATIC_DRAW);
 
         // setup how data is read and enable it
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
 
+        //line_shader_mvp_loc = glGetUniformLocation(line_shader, "mvp");
+        line_shader_color_loc = glGetUniformLocation(line_shader, "color");
+
+        proj_loc = glGetUniformLocation(line_shader, "proj");
+        view_loc = glGetUniformLocation(line_shader, "view");
+
         // unbind 
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
+        glUseProgram(0);
 
-        glUseProgram(0);        
+        printf("shader comp complete\n");
     }
 
     end = get_time_us();
@@ -256,7 +376,7 @@ int main(const int argc, const char ** argv) {
 
         start = frame_start;
         // handle input:
-        while(SDL_PollEvent(&sdl_event)) {
+        while(SDL_PollEvent(&sdl_event) != 0) {
 		    switch(sdl_event.type) {
 			    case SDL_QUIT:
 				    printf("cmd: sdl_window_quit\n");
@@ -285,9 +405,55 @@ int main(const int argc, const char ** argv) {
         glEnd();
         #else
         // opengl3 line
-        
-        #endif
 
+        // model, projection, view;
+        // mvp, 
+
+        float line_color[3] = { 1.0f, 1.0f, 1.0f };
+
+        mat4 m_model, m_proj, m_view, m_mvp;
+
+        identity_mat4(&m_model);
+        identity_mat4(&m_proj);
+        identity_mat4(&m_view);
+        identity_mat4(&m_mvp);
+        
+        // perspective
+        float fov = 90.0f;
+        float aspect_ratio = 640.0f / 480.0f;
+        float z_near = 0.001f;
+        float z_far = 1000.0f;
+        perspective_mat4(fov * A2R, aspect_ratio, z_near, z_far, &m_proj);
+
+        // camera / lookat -> view
+        vec3 eye, dir, up;
+        // horrid
+        set_vec3(0, 0, 1, &eye);
+        set_vec3(0, 0, -1, &dir);
+        set_vec3(0, 1, 0, &up); 
+        lookat_mat4(eye, dir, up, &m_view);
+        
+        // mul opengl 
+        mul_mat4(&m_proj, &m_view, &m_mvp); 
+
+        glBindVertexArray(line_vao);
+        glBindBuffer(GL_ARRAY_BUFFER, line_vbo);
+        glUseProgram(line_shader);
+
+        // glUniform3fv(line_shader_color_loc, 1, (GLfloat*)line_color);
+        // glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
+
+        glUniformMatrix4fv(proj_loc, 1, GL_FALSE, (GLfloat*)m_proj.v);
+        glUniformMatrix4fv(view_loc, 1, GL_FALSE, (GLfloat*)m_view.v);
+
+        glDrawArrays(GL_TRIANGLES, 0, 3); 
+
+        glUseProgram(0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);      
+        #endif
+        
+        glFlush();
         SDL_GL_SwapWindow(window);
 
         end = get_time_us();
@@ -297,7 +463,7 @@ int main(const int argc, const char ** argv) {
         frame_elapsed = frame_end - frame_start;
 
         // sleep if there is time left!
-        sleep_time = 0;        
+        sleep_time = 0;
         if(frame_elapsed >= max_frame_time) {
             // bad frame - overflow!
             printf("no time to sleep - overflow\n");
@@ -332,25 +498,33 @@ int main(const int argc, const char ** argv) {
         // total runtime;
         unsigned long long int runtime = 0;
         unsigned long long int active_frame_time = 0;
-        
+        float percent[TT_MAX];
+
         int i = 0;
         while(i < TT_MAX) {
             runtime += total_timing[i];
-            i++;        
+            i++;
         }
 
         active_frame_time = total_timing[TT_INPUT] + total_timing[TT_COMPUTE] + total_timing[TT_RENDER];
 
         printf("\nruntime info:\n");
-        printf("frame_count:   %llu\n", frame_count);
+        printf("num frames:    %llu\n", frame_count);
         printf("startup time:  %llu ms\n", total_timing[TT_INIT] / 1000);
         printf("cleanup time:  %llu ms\n", total_timing[TT_DEINIT] / 1000);
 
-        printf("frame_timings\n");        
-        printf("input time:    %llu ms\n", total_timing[TT_INPUT] / 1000);
-        printf("update time:   %llu ms\n", total_timing[TT_COMPUTE] / 1000);
-        printf("render time:   %llu ms\n", total_timing[TT_RENDER] / 1000);
-        printf("sleep time:    %llu ms\n", total_timing[TT_SLEEP] / 1000);
+        // calc percent
+        for(i = 0; i < TT_MAX; i++) {
+            percent[i] = (float)total_timing[i] / (float)runtime; // 0..1
+            percent[i] *= 100.0f; // to scale 0..100
+        }   
+
+        printf("\n");
+        printf("frame_timings:\n");
+        printf("input time:    %llu ms\t(%-5.2f %%)\n", total_timing[TT_INPUT] / 1000, percent[TT_INPUT]);
+        printf("update time:   %llu ms\t(%-5.2f %%)\n", total_timing[TT_COMPUTE] / 1000, percent[TT_COMPUTE]);
+        printf("render time:   %llu ms\t(%-5.2f %%)\n", total_timing[TT_RENDER] / 1000, percent[TT_RENDER]);
+        printf("sleep time:    %llu ms\t(%-5.2f %%)\n", total_timing[TT_SLEEP] / 1000, percent[TT_SLEEP]);
         
         printf("\ntotal runtime: %llu ms\n", runtime / 1000); 
     }
