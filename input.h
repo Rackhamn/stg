@@ -3,6 +3,19 @@
 
 #include <SDL2/sdl.h>
 
+/*
+    TODO:
+        make input module actually usable
+        add controller support
+        add joystick support
+
+        add polling for PRESSED / DOWN / VALUE
+        add per-action registers for how it should ideally read input values
+            (key instead of controller joystick axis)
+
+        add recording / streaming io for testing (independant of FPS)
+*/
+
 struct input_key {
     // int tag; // action key map
     long int keysym;

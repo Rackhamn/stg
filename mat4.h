@@ -151,6 +151,12 @@ void translate_mat4(float x, float y, float z, mat4 * m) {
     m->v[14] = z;
 }
 
+void scale_mat4(float x, float y, float z, mat4 * m) {
+    m->v[0] = x;
+    m->v[5] = y;
+    m->v[10] = z;
+}
+
 void perspective_mat4(float fov, float aspect_ratio, float z_near, float z_far, mat4 * m) {
     float f, fn;
     zero_mat4(m);

@@ -3,6 +3,15 @@
 TODO:
 -----
 
+first:
+    add circles -> verlet snake
+    add field / arena
+    add player rotation + scale
+    add physics movement + collision integration
+
+WANTS:
+------
+
 `INPUT`
 * remappable input to 'game' controller actions 
 * keyboard input

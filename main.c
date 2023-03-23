@@ -209,11 +209,13 @@ int main(const int argc, const char ** argv) {
     vec4 background_color;
     vec4 field_color;
     vec4 snake_color;
+    vec4 snake_eye_color;
     vec4 player_color;
 
     set_rgb_vec4(173, 216, 230, &background_color); // light sky blue
-    set_rgb_vec4(114, 212, 138, &field_color); // light field green
-    set_rgb_vec4(17, 25, 27, &snake_color); // blue dark snake
+    set_rgb_vec4(58, 191, 91, &field_color); // dark field green
+    set_rgb_vec4(41, 41, 41, &snake_color); // blue dark snake
+    set_rgb_vec4(255, 35, 22, &snake_eye_color); // vivid red
     set_rgb_vec4(250, 253, 248, &player_color); // light bone
 
     // red backgroud
@@ -412,7 +414,7 @@ int main(const int argc, const char ** argv) {
             float * ptr = verts + num_vertices;
             float radius = 0.5;
             
-            int points = 8;
+            int points = 12;
             float angle = 360.0f / points;
 
             float ax = angle; // delta
@@ -753,16 +755,59 @@ int main(const int argc, const char ** argv) {
         float x, y, z;
 
         // field
-        // SQUARE
+        // field
         x = y = 0.0f;
         z = -5;
         identity_mat4(&m_model);
+        scale_mat4(10, 10, 1, &m_model);
         translate_mat4(x, y, z, &m_model);
         mul_mat4(&m_vp, &m_model, &m_mvp); 
         glUniform3fv(line_shader_color_loc, 1, (GLfloat*)&field_color);
         glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
         glDrawArrays(GL_TRIANGLES, 3, 8); 
 
+        // snakes
+        for(int i = 0; i < 9; i++) {
+            x = -1.0f + cos(A2R*i * 45);
+            y = 1.0f + sin(A2R*i * 50);
+            z = -4;
+            identity_mat4(&m_model);
+
+            float dim = 1.0f - ((float)i / 9.0f);
+            scale_mat4(dim, dim, dim, &m_model);
+            translate_mat4(x, y, z, &m_model);
+            mul_mat4(&m_vp, &m_model, &m_mvp); 
+            glUniform3fv(line_shader_color_loc, 1, (GLfloat*)&snake_color);
+            glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
+            glDrawArrays(GL_POLYGON, circle_first_index, circle_last_index); 
+        }
+
+        // eyes        
+        x = -1.0f + cos(A2R*0 * 45);
+        y = 1.0f + sin(A2R*0 * 50);
+        z = -3.9;
+        identity_mat4(&m_model);
+        scale_mat4(.5, .5, .5, &m_model);
+        translate_mat4(x, y, z, &m_model);
+        mul_mat4(&m_vp, &m_model, &m_mvp); 
+        glUniform3fv(line_shader_color_loc, 1, (GLfloat*)&snake_eye_color);
+        glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
+        glDrawArrays(GL_POLYGON, circle_first_index, circle_last_index); 
+
+        // player
+        x = +2.0f;
+        y = -1.0f;
+        z = -4;
+        identity_mat4(&m_model);
+        scale_mat4(.5, .5, .5, &m_model);
+        translate_mat4(x, y, z, &m_model);
+        mul_mat4(&m_vp, &m_model, &m_mvp); 
+        glUniform3fv(line_shader_color_loc, 1, (GLfloat*)&player_color);
+        glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
+        glDrawArrays(GL_TRIANGLES, 0, 3); 
+
+
+        if(0)
         for(int i = 0; i < 10; i++) {
 
             line_color[0] = line_color[1] = line_color[2] = 1.0f / (i + 1);
