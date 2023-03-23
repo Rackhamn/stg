@@ -395,9 +395,17 @@ int main(const int argc, const char ** argv) {
         float vertices[] = {
             // triangle is not oriented toward 0.
             // 0..3 triangle
+            /*
             -0.5f, -0.5f, 0.0f,
              0.5f, -0.5f, 0.0f,
              0.0f,  0.5f, 0.0f,
+            */
+    
+            // player 0 oriented triangle
+            0.5f, 0.0f, 0.0f,
+            -0.5f, 0.5f, 0.0f, 
+            -0.5f, -0.5f, 0.0f,
+
             // 3..9 rectangle
             -0.5f,  0.5f, 0.0f,
             -0.5f, -0.5f, 0.0f,
@@ -691,8 +699,8 @@ int main(const int argc, const char ** argv) {
                 }
             }
 
-            if(iak[0].value.i) { p_rot_z -= 4.0f * frame_delta_time; }
-            if(iak[1].value.i) { p_rot_z += 4.0f * frame_delta_time; }
+            if(iak[0].value.i) { p_rot_z += 4.0f * frame_delta_time; }
+            if(iak[1].value.i) { p_rot_z -= 4.0f * frame_delta_time; }
             if(iak[3].value.i) { 
                 // vel_y -= 1.0f; 
 
@@ -814,13 +822,13 @@ int main(const int argc, const char ** argv) {
         z = -4;
         identity_mat4(&m_model);
         scale_mat4(.5, .5, .5, &m_model);
-        rot_z_mat4(p_rot_z - A2R * 90.0f, &m_model); // self rot first
+        // rot_z_mat4(p_rot_z - A2R * 90.0f, &m_model); // self rot first
+        rot_z_mat4(p_rot_z, &m_model); // self rot first
         translate_mat4(p_x, p_y, z, &m_model);
         mul_mat4(&m_vp, &m_model, &m_mvp); 
         glUniform3fv(line_shader_color_loc, 1, (GLfloat*)&player_color);
         glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
         glDrawArrays(GL_TRIANGLES, 0, 3); 
-
 
         if(0)
         for(int i = 0; i < 10; i++) {
