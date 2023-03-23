@@ -47,4 +47,11 @@ TODO:
 * audio loading
 * utf8 string file parsing
 * fps & pause independant [runtime only] timers and events
+* mat4, mat3, vec2, vec3, vec4 math library
+* color picker
+* model handler (vertex define)
+
+`RUNTIME OPTIONS`
+* pause on leave window
+* pause on sleep / screen-lock / monitor off / low battery (laptop)
 

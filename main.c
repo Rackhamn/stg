@@ -185,6 +185,8 @@ int main(const int argc, const char ** argv) {
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16); // 24
 
+    // SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1); // option
+
     // init glew (gl bindings)
     glewInit();
 	glEnable(GL_DEPTH_TEST);
@@ -209,6 +211,7 @@ int main(const int argc, const char ** argv) {
 
     printf("* compile line shader\n");
     
+    // make a separete rendering module for the opengl info.
     GLuint line_vao, line_vbo, line_shader;
     GLuint line_shader_mvp_loc; //, proj_loc, view_loc; 
     GLuint line_shader_color_loc;
@@ -616,7 +619,7 @@ int main(const int argc, const char ** argv) {
         identity_mat4(&m_vp);
         
         // translate + rotate model
-        translate_mat4(dx, dy, 0, &m_model);
+        // translate_mat4(dx, dy, 0, &m_model);
 
         // perspective
         float fov = 90.0f;
@@ -630,7 +633,7 @@ int main(const int argc, const char ** argv) {
         // horrid
         // set_vec3(dx, dy, 1, &eye);
 
-        set_vec3(0, 0, 1.0, &eye);
+        set_vec3(dx*2, dy*2, 1.0, &eye);
         set_vec3(0, 0, -1, &dir);
         set_vec3(0, 1, 0, &up); 
         lookat_mat4(eye, dir, up, &m_view);
@@ -650,6 +653,31 @@ int main(const int argc, const char ** argv) {
         glUniform3fv(line_shader_color_loc, 1, (GLfloat*)line_color);
 
         glDrawArrays(GL_TRIANGLES, 0, 3); 
+
+
+        // test
+        srand(frame_count);
+        for(int i = 0; i < 10; i++) {
+            float x, y, z;
+
+            // x = (1.0f / (rand() % 320));
+            // y = (1.0f / (rand() % 240));
+            x = y = 0.0f;
+            z = -i;
+
+            identity_mat4(&m_model);
+            translate_mat4(x, y, z, &m_model);
+
+            mul_mat4(&m_vp, &m_model, &m_mvp); 
+
+            glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
+            
+            line_color[0] = line_color[1] = line_color[2] = 1.0f / (i + 1);
+            glUniform3fv(line_shader_color_loc, 1, (GLfloat*)line_color);
+
+            glDrawArrays(GL_TRIANGLES, 0, 3); 
+        }
+
 
         glUseProgram(0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
