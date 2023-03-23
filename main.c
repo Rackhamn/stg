@@ -215,6 +215,9 @@ int main(const int argc, const char ** argv) {
     GLuint line_vao, line_vbo, line_shader;
     GLuint line_shader_mvp_loc; //, proj_loc, view_loc; 
     GLuint line_shader_color_loc;
+    
+    int circle_first_index = 0;
+    int circle_last_index = 0;
 
     {
         // does not work on my pc -> needs newer opengl version
@@ -331,14 +334,61 @@ int main(const int argc, const char ** argv) {
         glBindVertexArray(line_vao);
         glBindBuffer(GL_ARRAY_BUFFER, line_vbo);
 
+        float * verts = malloc(sizeof(float) * (3 * 1024));
+
         // push data once
+        int num_vertices = 3 * (3 + 6);
         float vertices[] = {
+            // 0..3 triangle
             -0.5f, -0.5f, 0.0f,
              0.5f, -0.5f, 0.0f,
-             0.0f,  0.5f, 0.0f
+             0.0f,  0.5f, 0.0f,
+            // 3..8 rectangle
+            -0.5f,  0.5f, 0.0f,
+            -0.5f, -0.5f, 0.0f,
+             0.5f,  0.5f, 0.0f,
+             0.5f,  0.5f, 0.0f,
+            -0.5f, -0.5f, 0.0f,
+             0.5f, -0.5f, 0.0f,
         };
 
-        glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 9, &vertices, GL_STATIC_DRAW);
+        memcpy(verts, vertices, sizeof(float) * num_vertices);
+
+        circle_first_index = 9; // num_vertices / 3;
+        // gen circle & push
+        {
+            float * ptr = verts + num_vertices;
+            float radius = 0.5;
+            
+            int points = 8;
+            float angle = 360.0f / points;
+
+            float ax = angle; // delta
+            for(int i = 0; i < points; i++) {
+                *ptr++ = 0.0f;
+                *ptr++ = 0.0f;
+                *ptr++ = 0.0f;
+
+                *ptr++ = cos(A2R * angle) * radius;
+                *ptr++ = sin(A2R * angle) * radius;
+                *ptr++ = 0.0f;
+
+                angle += ax;
+
+                *ptr++ = cos(A2R * angle) * radius;
+                *ptr++ = sin(A2R * angle) * radius;
+                *ptr++ = 0.0f;
+            }
+
+            num_vertices += points * 9;
+            circle_last_index = circle_first_index + points * 9; // circle_first_index + n_num_vertices / 3;
+        }
+
+        glBufferData(GL_ARRAY_BUFFER, sizeof(float) * num_vertices, verts, GL_STATIC_DRAW);
+
+        free(verts);
+
+
 
         // setup how data is read and enable it
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
@@ -637,7 +687,7 @@ int main(const int argc, const char ** argv) {
         set_vec3(0, 0, -1, &dir);
         set_vec3(0, 1, 0, &up); 
         lookat_mat4(eye, dir, up, &m_view);
-        
+
         // mul opengl 
         mul_mat4(&m_proj, &m_view, &m_vp); // same view & proj for all models
         mul_mat4(&m_vp, &m_model, &m_mvp); 
@@ -678,6 +728,27 @@ int main(const int argc, const char ** argv) {
             glDrawArrays(GL_TRIANGLES, 0, 3); 
         }
 
+        float x, y, z;
+        x = y = 1.0f;
+        z = -2;
+        identity_mat4(&m_model);
+        translate_mat4(x, y, z, &m_model);
+        mul_mat4(&m_vp, &m_model, &m_mvp); 
+        glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
+        line_color[0] = line_color[1] = line_color[2] = 1.0f;
+        glUniform3fv(line_shader_color_loc, 1, (GLfloat*)line_color);
+        glDrawArrays(GL_TRIANGLES, 3, 8); 
+
+        x = -2.0f;
+        y = 0.0f;
+        z = -2;
+        identity_mat4(&m_model);
+        translate_mat4(x, y, z, &m_model);
+        mul_mat4(&m_vp, &m_model, &m_mvp); 
+        glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
+        line_color[0] = line_color[1] = line_color[2] = 1.0f;
+        glUniform3fv(line_shader_color_loc, 1, (GLfloat*)line_color);
+        glDrawArrays(GL_POLYGON, circle_first_index, circle_last_index); 
 
         glUseProgram(0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
