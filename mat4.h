@@ -3,7 +3,21 @@
 
 #include <math.h>
 
-// temp
+struct vec4_s {
+    union {
+        float a[4];
+        struct { float x, y, z, w; };
+    };
+};
+typedef struct vec4_s vec4;
+
+void set_rgb_vec4(unsigned char r, unsigned char g, unsigned char b, vec4 * v) {
+    v->x = (float)r / 255.0f;
+    v->y = (float)g / 255.0f;
+    v->z = (float)b / 255.0f;
+    v->w = 1.0f;
+}
+
 struct vec3_s {
     union {
         float a[3];

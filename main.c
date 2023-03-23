@@ -206,8 +206,60 @@ int main(const int argc, const char ** argv) {
 
     // glViewport(0, 0, 640, 480);
 
+    vec4 background_color;
+    vec4 field_color;
+    vec4 snake_color;
+    vec4 player_color;
+
+    set_rgb_vec4(173, 216, 230, &background_color); // light sky blue
+    set_rgb_vec4(114, 212, 138, &field_color); // light field green
+    set_rgb_vec4(17, 25, 27, &snake_color); // blue dark snake
+    set_rgb_vec4(250, 253, 248, &player_color); // light bone
+
     // red backgroud
     glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+    {
+        float r, g, b;
+        
+        // light sky blue
+        r = 173.0f / 255.0f;
+        g = 216.0f / 255.0f;
+        b = 230.0f / 255.0f;
+
+        // light field green
+        r = 114.0f / 255.0f;
+        g = 212.0f / 255.0f;
+        b = 138.0f / 255.0f;
+
+        // dark field green
+        r = 58.0f / 255.0f;
+        g = 191.0f / 255.0f;
+        b = 91.0f / 255.0f;
+
+        // dark snake
+        r = 4.0f / 255.0f;
+        g = 14.0f / 255.0f;
+        b = 7.0f / 255.0f;
+
+        // blue dark snake
+        r = 17.0f / 255.0f;
+        g = 25.0f / 255.0f;
+        b = 27.0f / 255.0f;
+
+        // vivid red
+        r = 255.0f / 255.0f;
+        g = 35.0f / 255.0f;
+        b = 22.0f / 255.0f;
+
+        // vivid yellow
+        r = 255.0f / 255.0f;
+        g = 210.0f / 255.0f;
+        b = 22.0f / 255.0f;
+
+        glClearColor(r, g, b, 1.0f);
+    }
+
+    glClearColor(background_color.x, background_color.y, background_color.z, background_color.w);
 
     printf("* compile line shader\n");
     
@@ -700,6 +752,17 @@ int main(const int argc, const char ** argv) {
         // srand(frame_count);
         float x, y, z;
 
+        // field
+        // SQUARE
+        x = y = 0.0f;
+        z = -5;
+        identity_mat4(&m_model);
+        translate_mat4(x, y, z, &m_model);
+        mul_mat4(&m_vp, &m_model, &m_mvp); 
+        glUniform3fv(line_shader_color_loc, 1, (GLfloat*)&field_color);
+        glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
+        glDrawArrays(GL_TRIANGLES, 3, 8); 
+
         for(int i = 0; i < 10; i++) {
 
             line_color[0] = line_color[1] = line_color[2] = 1.0f / (i + 1);
@@ -708,7 +771,7 @@ int main(const int argc, const char ** argv) {
             // TRIANGLE
             x = 0.0f;
             y = 0.0f;
-            z = -2 + -i;
+            z = -2 + -((float)i * .25);
 
             identity_mat4(&m_model);
             translate_mat4(x, y, z, &m_model);
