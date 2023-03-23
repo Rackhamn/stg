@@ -248,7 +248,22 @@ void transpose_mat4(mat4 * m) {
 	m->m[2][2] = t.m[2][2];
 	m->m[3][2] = t.m[2][3];
 	m->m[2][3] = t.m[3][2];
-	m->m[3][3] = t.m[3][3];    
+    m->m[3][3] = t.m[3][3];    
+}
+
+void rot_z_mat4(float z, mat4 * m) {
+    mat4 v;
+    identity_mat4(&v);
+
+    float c = cos(z);
+    float s = sin(z);
+
+    v.m[0][0] = c;    
+    v.m[0][1] = s;
+    v.m[1][0] = -s;
+    v.m[1][1] = c;
+
+    mul_mat4(&v, m, m);
 }
 
 void print_mat4(mat4 * m) {
