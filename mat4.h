@@ -251,12 +251,79 @@ void transpose_mat4(mat4 * m) {
     m->m[3][3] = t.m[3][3];    
 }
 
+void rot_x_mat4(float x, mat4 * m) {
+    mat4 v;
+    identity_mat4(&v);
+
+    float c = cos(x);
+    float s = sin(x);
+
+    v.m[1][1] = c;    
+    v.m[1][2] = s;
+    v.m[2][1] = -s;
+    v.m[2][2] = c;
+
+    mul_mat4(&v, m, m);
+}
+
+void rot_y_mat4(float y, mat4 * m) {
+    mat4 v;
+    identity_mat4(&v);
+
+    float c = cos(y);
+    float s = sin(y);
+
+    v.m[0][0] = c;    
+    v.m[0][2] = -s;
+    v.m[2][0] = s;
+    v.m[2][2] = c;
+
+    mul_mat4(&v, m, m);
+}
+
 void rot_z_mat4(float z, mat4 * m) {
     mat4 v;
     identity_mat4(&v);
 
     float c = cos(z);
     float s = sin(z);
+
+    v.m[0][0] = c;    
+    v.m[0][1] = s;
+    v.m[1][0] = -s;
+    v.m[1][1] = c;
+
+    mul_mat4(&v, m, m);
+}
+
+
+void rot_x_cs_mat4(float c, float s, mat4 * m) {
+    mat4 v;
+    identity_mat4(&v);
+
+    v.m[1][1] = c;    
+    v.m[1][2] = s;
+    v.m[2][1] = -s;
+    v.m[2][2] = c;
+
+    mul_mat4(&v, m, m);
+}
+
+void rot_y_cs_mat4(float c, float s, mat4 * m) {
+    mat4 v;
+    identity_mat4(&v);
+
+    v.m[0][0] = c;    
+    v.m[0][2] = -s;
+    v.m[2][0] = s;
+    v.m[2][2] = c;
+
+    mul_mat4(&v, m, m);
+}
+
+void rot_z_cs_mat4(float c, float s, mat4 * m) {
+    mat4 v;
+    identity_mat4(&v);
 
     v.m[0][0] = c;    
     v.m[0][1] = s;

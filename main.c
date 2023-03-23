@@ -497,7 +497,13 @@ int main(const int argc, const char ** argv) {
     #endif
     
     
-    
+    vec3 p_pos;
+    vec3 p_vel;
+    vec3 p_rot;
+
+    set_vec3(3.0f, 3.0f, -3.8f, &p_pos);
+    set_vec3(0.0f, 0.0f, 0.0f, &p_vel);
+    set_vec3(0.0f, 0.0f, A2R * -90.0f, &p_rot);
     
 
     end = get_time_us();
@@ -699,19 +705,28 @@ int main(const int argc, const char ** argv) {
                 }
             }
 
-            if(iak[0].value.i) { p_rot_z += 4.0f * frame_delta_time; }
-            if(iak[1].value.i) { p_rot_z -= 4.0f * frame_delta_time; }
+            if(iak[0].value.i) { p_rot.z += 4.0f * frame_delta_time; }
+            if(iak[1].value.i) { p_rot.z -= 4.0f * frame_delta_time; }
             if(iak[3].value.i) { 
                 // vel_y -= 1.0f; 
 
-                float rx = cos(p_rot_z);
-                float ry = sin(p_rot_z);
+                float rx = cos(p_rot.z);
+                float ry = sin(p_rot.z);
 
-                p_x += rx * 4.0f * frame_delta_time;
-                p_y += ry * 4.0f * frame_delta_time;
+                p_vel.x += rx * 4.0f * frame_delta_time;
+                p_vel.y += ry * 4.0f * frame_delta_time;
+
+                // p_x += rx * 4.0f * frame_delta_time;
+                // p_y += ry * 4.0f * frame_delta_time;
             }
             if(iak[3].value.i) {  }
         }
+
+        p_pos.x += p_vel.x * 4 * frame_delta_time;
+        p_pos.y += p_vel.y * 4 * frame_delta_time;
+        // damping
+        p_vel.x -= p_vel.x * 0.9 * frame_delta_time;
+        p_vel.y -= p_vel.y * 0.9 * frame_delta_time;
 
         dx += vel_x * c_force_x * frame_delta_time;
         dy += vel_y * c_force_y * frame_delta_time;
@@ -822,14 +837,13 @@ int main(const int argc, const char ** argv) {
         z = -4;
         identity_mat4(&m_model);
         scale_mat4(.5, .5, .5, &m_model);
-        // rot_z_mat4(p_rot_z - A2R * 90.0f, &m_model); // self rot first
-        rot_z_mat4(p_rot_z, &m_model); // self rot first
-        translate_mat4(p_x, p_y, z, &m_model);
+        rot_z_mat4(p_rot.z, &m_model); // self rot first
+        translate_mat4(p_pos.x, p_pos.y, p_pos.z, &m_model);
         mul_mat4(&m_vp, &m_model, &m_mvp); 
         glUniform3fv(line_shader_color_loc, 1, (GLfloat*)&player_color);
         glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
         glDrawArrays(GL_TRIANGLES, 0, 3); 
-
+        
         if(0)
         for(int i = 0; i < 10; i++) {
 
