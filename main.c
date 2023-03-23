@@ -116,7 +116,8 @@ int main(const int argc, const char ** argv) {
     if(!isatty(1)) {
         // use a log file
         // TODO: append filename with date / time?
-        freopen("runtime.log", "w+", stdout);
+        FILE * fptr = NULL;
+        fptr = freopen("runtime.log", "w+", stdout);
     }
 
     // handle argv
@@ -201,7 +202,7 @@ int main(const int argc, const char ** argv) {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    glViewport(0, 0, 640, 480);
+    // glViewport(0, 0, 640, 480);
 
     // red backgroud
     glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
@@ -351,6 +352,38 @@ int main(const int argc, const char ** argv) {
         printf("shader comp complete\n");
     }
 
+    #if 0
+    // https://learnopengl.com/Advanced-OpenGL/Framebuffers
+
+    // note: to use fbo and fbo_tex we need a special shader to draw to the screen with!
+    // that means that we can do special post-processing on the entire rendered scene
+
+    // framebuffer
+    printf("gen fbo\n");
+    GLuint fbo, fbo_tex;
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE) {
+        printf("fbo ok\n");
+    }
+    
+    // use a simple color texture without depth for fbo
+    glGenTextures(1, &fbo_tex);
+    glBindTexture(GL_TEXTURE_2D, fbo_tex);
+    
+    // RGB888
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 320, 240, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    
+    // attach tex to fbo
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo_tex, 0);
+    #endif
+    
+    
+    
+    
+
     end = get_time_us();
     elapsed = end - start;
     total_timing[TT_INIT] = elapsed;
@@ -424,7 +457,11 @@ int main(const int argc, const char ** argv) {
 
     long int scancode;
     long int keysym;
-    
+
+    // make sure that we dont drop frames by aligning to the v-sync (if on)
+    // * can we wait until the window is mapped?
+    SDL_GL_SwapWindow(window);
+
     while(!quit) {
         frame_start = get_time_us();
     
@@ -556,25 +593,17 @@ int main(const int argc, const char ** argv) {
 
         start = end;
         // update:
+
+        float ft = frame_count * frame_delta_time;
+        dx = 0.5 * cosf(ft);
+        dy = 0.5 * sinf(ft);
+
         end = get_time_us();
         total_timing[TT_COMPUTE] += end - start;
         
         start = end;
         // render:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        #if 0
-        // opengl2 line
-        glBegin(GL_LINES);
-            glColor4f(0, 0, 1.0, 1.0);
-            glVertex2f(.25, .25);
-            glVertex2f(.75, .75);
-        glEnd();
-        #else
-        // opengl3 line
-
-        // model, projection, view;
-        // mvp, 
 
         float line_color[3] = { 1.0f, 1.0f, 1.0f };
 
@@ -619,13 +648,17 @@ int main(const int argc, const char ** argv) {
         
         line_color[0] = line_color[1] = line_color[2] = 1.0f;
         glUniform3fv(line_shader_color_loc, 1, (GLfloat*)line_color);
+
         glDrawArrays(GL_TRIANGLES, 0, 3); 
 
         glUseProgram(0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);      
-        #endif
-        
+
+        // TODO: render to lower resolution framebuffer and then render framebuffer to screen
+        // also keep aspect ratio
+        // and option for edge texture (not just black borders) 
+
         glFlush();
         SDL_GL_SwapWindow(window);
 
@@ -639,14 +672,14 @@ int main(const int argc, const char ** argv) {
         sleep_time = 0;
         if(frame_elapsed >= max_frame_time) {
             // bad frame - overflow!
-            printf("no time to sleep - overflow\n");
+            printf("[frame %llu] no time to sleep - overflow by %llu us\n", frame_count, frame_elapsed - max_frame_time);
         } else {
             sleep_time = max_frame_time - frame_elapsed;
             if(sleep_time < max_frame_time) {
                 sleep_us(sleep_time);
             } else {
                 // no time left to sleep!
-                printf("no time to sleep\n");
+                printf("[frame %llu] no time to sleep%llu us\n", frame_count);
             }
         } 
         total_timing[TT_SLEEP] += sleep_time;
@@ -675,29 +708,38 @@ int main(const int argc, const char ** argv) {
         unsigned long long int active_frame_time = 0;
         
         float percent[TT_MAX];
+        float percent_sum = 0.0f;
+        float frame_percent_sum = 0.0f;
+
         int i = 0;
         while(i < TT_MAX) {
             runtime += total_timing[i];
             i++;
         }
 
-        active_frame_time = total_timing[TT_INPUT] + total_timing[TT_COMPUTE] + total_timing[TT_RENDER];
-
         // calc percent
         for(i = 0; i < TT_MAX; i++) {
             percent[i] = (float)total_timing[i] / (float)runtime; // 0..1
             percent[i] *= 100.0f; // to scale 0..100
+
+            percent_sum += percent[i];
         }
 
-        printf("\nruntime info:\n");
-        printf("num frames:    %'9llu\n", frame_count);
+        active_frame_time = total_timing[TT_INPUT] + total_timing[TT_COMPUTE] + total_timing[TT_RENDER];
+        frame_percent_sum = percent[TT_INPUT] + percent[TT_COMPUTE] + percent[TT_RENDER];
+
+        printf("\n");
+        printf("runtime info:\n");
+        printf("num frames: %'9llu\n", frame_count);
         
         printf("\nTimings:\n");
         for(i = 0; i < TT_MAX; i++) {
             printf("  %-9s %'9llu ms (%-5.2f %%)\n", time_tag_name[i], total_timing[i] / 1000, percent[i]);
         }
-
-        printf("\ntotal runtime: %'9llu ms (%-5.2f %%)\n", runtime / 1000, 100.0f); 
+        
+        printf("\n");
+        // printf("frametime: %'9llu ms (%-5.2f %%)\n", active_frame_time / 1000, frame_percent_sum);
+        printf("total runtime: %'9llu ms (%-5.2f %%)\n", runtime / 1000, percent_sum); 
         
         printf("\n########################################\n");
     }
