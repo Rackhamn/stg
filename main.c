@@ -343,7 +343,7 @@ int main(const int argc, const char ** argv) {
             -0.5f, -0.5f, 0.0f,
              0.5f, -0.5f, 0.0f,
              0.0f,  0.5f, 0.0f,
-            // 3..8 rectangle
+            // 3..9 rectangle
             -0.5f,  0.5f, 0.0f,
             -0.5f, -0.5f, 0.0f,
              0.5f,  0.5f, 0.0f,
@@ -354,7 +354,7 @@ int main(const int argc, const char ** argv) {
 
         memcpy(verts, vertices, sizeof(float) * num_vertices);
 
-        circle_first_index = 9; // num_vertices / 3;
+        circle_first_index = num_vertices / 3;
         // gen circle & push
         {
             float * ptr = verts + num_vertices;
@@ -381,7 +381,7 @@ int main(const int argc, const char ** argv) {
             }
 
             num_vertices += points * 9;
-            circle_last_index = circle_first_index + points * 9; // circle_first_index + n_num_vertices / 3;
+            circle_last_index = num_vertices; 
         }
 
         glBufferData(GL_ARRAY_BUFFER, sizeof(float) * num_vertices, verts, GL_STATIC_DRAW);
@@ -696,59 +696,43 @@ int main(const int argc, const char ** argv) {
         glBindBuffer(GL_ARRAY_BUFFER, line_vbo);
         glUseProgram(line_shader);
 
-        glUniform3fv(line_shader_color_loc, 1, (GLfloat*)line_color);
-        glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
-        
-        line_color[0] = line_color[1] = line_color[2] = 1.0f;
-        glUniform3fv(line_shader_color_loc, 1, (GLfloat*)line_color);
-
-        glDrawArrays(GL_TRIANGLES, 0, 3); 
-
-
         // test
-        srand(frame_count);
+        // srand(frame_count);
+        float x, y, z;
+
         for(int i = 0; i < 10; i++) {
-            float x, y, z;
 
-            // x = (1.0f / (rand() % 320));
-            // y = (1.0f / (rand() % 240));
-            x = y = 0.0f;
-            z = -i;
-
-            identity_mat4(&m_model);
-            translate_mat4(x, y, z, &m_model);
-
-            mul_mat4(&m_vp, &m_model, &m_mvp); 
-
-            glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
-            
             line_color[0] = line_color[1] = line_color[2] = 1.0f / (i + 1);
             glUniform3fv(line_shader_color_loc, 1, (GLfloat*)line_color);
 
+            // TRIANGLE
+            x = 0.0f;
+            y = 0.0f;
+            z = -2 + -i;
+
+            identity_mat4(&m_model);
+            translate_mat4(x, y, z, &m_model);
+            mul_mat4(&m_vp, &m_model, &m_mvp); 
+            glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
             glDrawArrays(GL_TRIANGLES, 0, 3); 
+
+            // SQUARE
+            x = y = 1.0f;
+            identity_mat4(&m_model);
+            translate_mat4(x, y, z, &m_model);
+            mul_mat4(&m_vp, &m_model, &m_mvp); 
+            glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
+            glDrawArrays(GL_TRIANGLES, 3, 8); 
+
+            // CIRCLE
+            x = -2.0f;
+            y = 0.0f;
+            identity_mat4(&m_model);
+            translate_mat4(x, y, z, &m_model);
+            mul_mat4(&m_vp, &m_model, &m_mvp); 
+            glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
+            glDrawArrays(GL_POLYGON, circle_first_index, circle_last_index); 
         }
-
-        float x, y, z;
-        x = y = 1.0f;
-        z = -2;
-        identity_mat4(&m_model);
-        translate_mat4(x, y, z, &m_model);
-        mul_mat4(&m_vp, &m_model, &m_mvp); 
-        glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
-        line_color[0] = line_color[1] = line_color[2] = 1.0f;
-        glUniform3fv(line_shader_color_loc, 1, (GLfloat*)line_color);
-        glDrawArrays(GL_TRIANGLES, 3, 8); 
-
-        x = -2.0f;
-        y = 0.0f;
-        z = -2;
-        identity_mat4(&m_model);
-        translate_mat4(x, y, z, &m_model);
-        mul_mat4(&m_vp, &m_model, &m_mvp); 
-        glUniformMatrix4fv(line_shader_mvp_loc, 1, GL_FALSE, (GLfloat*)m_mvp.v);
-        line_color[0] = line_color[1] = line_color[2] = 1.0f;
-        glUniform3fv(line_shader_color_loc, 1, (GLfloat*)line_color);
-        glDrawArrays(GL_POLYGON, circle_first_index, circle_last_index); 
 
         glUseProgram(0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
